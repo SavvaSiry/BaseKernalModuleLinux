@@ -39,7 +39,6 @@
 **
 */
 #define LINUX_KERNEL_VERSION  510
-
 #define WR_VALUE _IOW('a','a',int32_t*)
 #define RD_VALUE _IOR('a','b',int32_t*)
 
@@ -51,9 +50,7 @@ dev_t dev = 0;
 static struct class *dev_class;
 static struct cdev etx_cdev;
 static struct proc_dir_entry *parent;
-
 struct pci_dev *dev2;
-
 
 /*
 ** Function Prototypes
@@ -61,85 +58,34 @@ struct pci_dev *dev2;
 static int      __init etx_driver_init(void);
 static void     __exit etx_driver_exit(void);
 
-/*************** Driver Functions **********************/
-static int      etx_open(struct inode *inode, struct file *file);
-static int      etx_release(struct inode *inode, struct file *file);
-static ssize_t  etx_read(struct file *filp, char __user *buf, size_t len,loff_t * off);
-static ssize_t  etx_write(struct file *filp, const char *buf, size_t len, loff_t * off);
-static long     etx_ioctl(struct file *file, unsigned int cmd, unsigned long arg);
-
 /***************** Procfs Functions *******************/
-static int      open_proc(struct inode *inode, struct file *file);
-static int      release_proc(struct inode *inode, struct file *file);
 static ssize_t  read_proc(struct file *filp, char __user *buffer, size_t length,loff_t * offset);
 static ssize_t  read_proc2(struct file *filp, char __user *buffer, size_t length,loff_t * offset);
-static ssize_t  write_proc(struct file *filp, const char *buff, size_t len, loff_t * off);
 
 /*
 ** procfs operation sturcture
 */
 static struct proc_ops proc_fops = {
-        .proc_open = open_proc,
         .proc_read = read_proc,
-        .proc_write = write_proc,
-        .proc_release = release_proc
 };
 
 static struct proc_ops proc_fops2 = {
-//        .proc_open = open_proc,
         .proc_read = read_proc2
-//        .proc_write = write_proc,
-//        .proc_release = release_proc
 };
-
-/*
-** This function will be called when we open the procfs file
- * Не обязательно
-*/
-static int open_proc(struct inode *inode, struct file *file)
-{
-    pr_info("proc file opend.....\t");
-    return 0;
-}
-
-/*
-** This function will be called when we close the procfs file
- * Не обязательно
-*/
-static int release_proc(struct inode *inode, struct file *file)
-{
-    pr_info("proc file released.....\n");
-    return 0;
-}
 
 // Мои переменные
 struct task_struct *g, *p;
-struct hlist_node *node;
-struct task_struct *ts1;
-int pid = 0;
-struct message* msg;
-struct signal_info* si;
-
-struct signal_info {
-    int nr_threads;
-    int prio;
-    unsigned int flags;
-    unsigned int sigHandlersAddr[64];
-};
-
-struct n_dev_info {
-    unsigned int size;
-    char name[10][16];
-};
-
-struct message {
-    struct signal_info si;
-    struct n_dev_info ndi;
-};
 /*
 ** This function will be called when we read the procfs file
 */
 static ssize_t read_proc2(struct file *filp, char __user *buffer, size_t length, loff_t * offset){
+    if (len) {
+        len=0;
+    }
+    else {
+        len=1;
+        return 0;
+    }
     if(copy_to_user(buffer, "multiprocess\n", 13)){
     pr_err("Data Send : Err!\n");
     }
@@ -211,81 +157,6 @@ static ssize_t read_proc(struct file *filp, char __user *buffer, size_t length, 
     pr_err("Data Send : Err!\n");
     }
     return length;
-}
-
-/*
-** This function will be called when we write the procfs file
-*/
-static ssize_t write_proc(struct file *filp, const char *buff, size_t len, loff_t * off){
-//    pr_info("proc file wrote.....\n");
-//
-//    if(copy_from_user(etx_array,buff,len))
-//    {
-//        pr_err("Data Write : Err!\n");
-//    }
-    return len;
-}
-
-/*
-** This function will be called when we open the Device file
-*/
-static int etx_open(struct inode *inode, struct file *file)
-{
-    pr_info("Device File Opened...!!!\n");
-    return 0;
-}
-
-/*
-** This function will be called when we close the Device file
-*/
-static int etx_release(struct inode *inode, struct file *file)
-{
-    pr_info("Device File Closed...!!!\n");
-    return 0;
-}
-
-/*
-** This function will be called when we read the Device file
-*/
-static ssize_t etx_read(struct file *filp, char __user *buf, size_t len, loff_t *off)
-{
-pr_info("Read function\n");
-return 0;
-}
-
-/*
-** This function will be called when we write the Device file
-*/
-static ssize_t etx_write(struct file *filp, const char __user *buf, size_t len, loff_t *off)
-{
-pr_info("Write Function\n");
-return len;
-}
-
-/*
-** This function will be called when we write IOCTL on the Device file
-*/
-static long etx_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
-{
-    switch(cmd) {
-        case WR_VALUE:
-            if( copy_from_user(&value ,(int32_t*) arg, sizeof(value)) )
-            {
-                pr_err("Data Write : Err!\n");
-            }
-            pr_info("Value = %d\n", value);
-            break;
-        case RD_VALUE:
-            if( copy_to_user((int32_t*) arg, &value, sizeof(value)) )
-            {
-                pr_err("Data Read : Err!\n");
-            }
-            break;
-        default:
-            pr_info("Default\n");
-            break;
-    }
-    return 0;
 }
 
 /*
