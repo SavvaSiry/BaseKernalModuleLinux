@@ -15,10 +15,10 @@
 #include <linux/fs.h>
 #include <linux/cdev.h>
 #include <linux/device.h>
-#include<linux/slab.h>                 //kmalloc()
-#include<linux/uaccess.h>              //copy_to/from_user()
+#include <linux/slab.h>                 //kmalloc()
+#include <linux/uaccess.h>              //copy_to/from_user()
 #include <linux/ioctl.h>
-#include<linux/proc_fs.h>
+#include <linux/proc_fs.h>
 
 #include <linux/pci.h>
 //мое
@@ -72,6 +72,7 @@ static long     etx_ioctl(struct file *file, unsigned int cmd, unsigned long arg
 static int      open_proc(struct inode *inode, struct file *file);
 static int      release_proc(struct inode *inode, struct file *file);
 static ssize_t  read_proc(struct file *filp, char __user *buffer, size_t length,loff_t * offset);
+static ssize_t  read_proc2(struct file *filp, char __user *buffer, size_t length,loff_t * offset);
 static ssize_t  write_proc(struct file *filp, const char *buff, size_t len, loff_t * off);
 
 /*
@@ -82,6 +83,13 @@ static struct proc_ops proc_fops = {
         .proc_read = read_proc,
         .proc_write = write_proc,
         .proc_release = release_proc
+};
+
+static struct proc_ops proc_fops2 = {
+//        .proc_open = open_proc,
+        .proc_read = read_proc2
+//        .proc_write = write_proc,
+//        .proc_release = release_proc
 };
 
 /*
@@ -105,13 +113,41 @@ static int release_proc(struct inode *inode, struct file *file)
 }
 
 // Мои переменные
-struct net_device *dev1;
+struct task_struct *g, *p;
+struct hlist_node *node;
+struct task_struct *ts1;
+int pid = 0;
+struct message* msg;
+struct signal_info* si;
 
+struct signal_info {
+    int nr_threads;
+    int prio;
+    unsigned int flags;
+    unsigned int sigHandlersAddr[64];
+};
+
+struct n_dev_info {
+    unsigned int size;
+    char name[10][16];
+};
+
+struct message {
+    struct signal_info si;
+    struct n_dev_info ndi;
+};
 /*
 ** This function will be called when we read the procfs file
 */
-static ssize_t read_proc(struct file *filp, char __user *buffer, size_t length,loff_t * offset){
-    pr_info("proc file read.....\n");
+static ssize_t read_proc2(struct file *filp, char __user *buffer, size_t length, loff_t * offset){
+    if(copy_to_user(buffer, "multiprocess\n", 13)){
+    pr_err("Data Send : Err!\n");
+    }
+    return length;
+}
+
+static ssize_t read_proc(struct file *filp, char __user *buffer, size_t length, loff_t * offset){
+    pr_info("Start read_proc");
     if(len) {
         len=0;
     }
@@ -119,17 +155,58 @@ static ssize_t read_proc(struct file *filp, char __user *buffer, size_t length,l
         len=1;
         return 0;
     }
-    char arr[1000];
-    char str[20];
+    char arr[4000];
+    char str[40];
     int i;
     int k = 0;
+    ////pci_dev
     while ((dev2 = pci_get_device(PCI_ANY_ID, PCI_ANY_ID, dev2))){
-        sprintf(str, "pci found [%d]\n", (dev2->device));
-        for (i = k; i < k + 20; i++){
+        sprintf(str, "pci found [%d]\tflags[%d]\n", (dev2->device), dev2->dev_flags);
+        for (i = k; i < k + 40; i++){
             arr[i] = str[i - k];
         }
-        k += 20;
+        k += 40;
+        if (k >= 4000) break;
     }
+    ////multiprocess
+//    do_each_thread(g, p) {
+//        sprintf(str, "Task (pid = %d)\n", task_pid_nr(p));
+//        for (i = k; i < k + 20; i++){
+//            arr[i] = str[i - k];
+//        }
+//        k += 20;
+//    } while_each_thread(g, p);
+//    unsigned int sigHandlersAddr[64];
+//    for_each_process(p) {
+//            pr_info("Hi");
+//        for (i = 0; i<64; i++)
+//        sigHandlersAddr[i] =
+//            printk("Get %d", (unsigned int) p->sighand->action[i].sa.sa_handler);
+
+//        sprintf(str, "Task %s (pid = %d) sig[%s]\n",p->comm, task_pid_nr(p), sigHandlersAddr);
+//            for (i = k; i < k + 100; i++){
+//                arr[i] = str[i - k];
+//            }
+//            k += 100;
+//            if (k >= 4000) break;
+
+
+//    while ((ts1 = get_pid_task(find_get_pid(pid), PIDTYPE_PID))){
+//        sprintf(str, "Task (pid = %d)\n", task_pid_nr(p));
+//        for (i = k; i < k + 25; i++){
+//            arr[i] = str[i - k];
+//        }
+//        k += 25;
+//    }
+//    do_each_thread(g, p) {
+//
+//        printk("Task %s (pid = %d) ",p->comm, task_pid_nr(p));
+//        printk(" %d", p->signal->nr_threads);
+//        printk(" %u \n", p->signal->flags);
+//        printk("Task %d\n", p->signal.multiprocess);
+//    } while_each_thread(g, p);
+
+    //print
     if(copy_to_user(buffer, arr, k)){
     pr_err("Data Send : Err!\n");
     }
@@ -255,7 +332,8 @@ static int __init etx_driver_init(void)
     }
 
     /*Creating Proc entry under "/proc/etx/" */
-    proc_create("etx_proc", 0666, parent, &proc_fops);
+    proc_create("pci_dev", 0666, parent, &proc_fops);
+    proc_create("multiprocess", 0666, parent, &proc_fops2);
 
     pr_info("Device Driver Insert...Done!!!\n");
     return 0;

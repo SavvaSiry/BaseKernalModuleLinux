@@ -12,6 +12,7 @@
 #include <linux/pci.h>
 #include <linux/signal.h>
 #include <linux/sched.h>
+#include <linux/types.h>
 
 MODULE_LICENSE("Dual BSD/GPL");
 MODULE_DESCRIPTION("Stab linux module for labs");
@@ -36,32 +37,29 @@ static int __init kmod_init(void) {
     printk(KERN_INFO "kmod: module loading.\n");
 	kmod_root = debugfs_create_dir("kmod", NULL);
 //
-	read_lock(&dev_base_lock);
-
+//	read_lock(&dev_base_lock);
+//
 	dev = first_net_device(&init_net);
 	while (dev) {
-	    printk(KERN_INFO "found [%s]\n", dev->name);
+	    printk(KERN_INFO "111found [%s]\n", dev->name);
 	    dev = next_net_device(dev);
 	}
+//
+//	read_unlock(&dev_base_lock);
+        ////ТУТ НУЖНЫЙ КОТ
+//    printk("PCI_SLOT\t\tCLASS\t\tBUS_MAX_SP\tCAP\tREG\n");
+//	  while (dev2 = pci_get_device(PCI_ANY_ID, PCI_ANY_ID, dev2)){
+//        printk("%d\t\t%d\t\t%c\t\t%d\t%i",
+//               dev2->devfn, /*dev2->device,*/ dev2->class, dev2->bus->max_bus_speed, pci_pcie_cap(dev2), dev2->hdr_type);
+//	      }
 
-	read_unlock(&dev_base_lock);
-
-	while (dev2 = pci_get_device(PCI_ANY_ID, PCI_ANY_ID, dev2)){
-//	        configure_device(dev2);
-	        printk(KERN_INFO "pci found [%d]\n", dev2->device);
-	        }
-
-    struct task_struct *task;
-
-//    for (p = &init_task; (p = next_task(p)) != &init_task;) {
-//        printk("Task %s (pid = %d)\n",p->comm, task_pid_nr(p));
-//    }
-
+//    Мультипроцессы
     struct task_struct *g, *p;
 
+    printk("pid\t\tnr_th\t\tflags\t\tss_flag\tName");
     do_each_thread(g, p) {
-        //do something with p
-        printk("Task %s (pid = %d)\n",p->comm, task_pid_nr(p));
+        printk("%d\t\t%d\t\t%x\t\t%X\t%s", task_pid_nr(p), p->signal->nr_threads, p->signal->flags, p->sas_ss_flags, p->comm);
+
     } while_each_thread(g, p);
 
     ts1 = get_pid_task(find_get_pid(1), PIDTYPE_PID);
