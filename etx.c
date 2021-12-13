@@ -62,6 +62,32 @@ static void     __exit etx_driver_exit(void);
 static ssize_t  read_proc(struct file *filp, char __user *buffer, size_t length,loff_t * offset);
 static ssize_t  read_proc2(struct file *filp, char __user *buffer, size_t length,loff_t * offset);
 
+/***************** Buffer Functions *******************/
+static char *arr;
+static char *str;
+unsigned int sigHandlersAddr[64];
+//static void clean_line(void){
+//    for (i = k; i < k + 60; i++){
+//        arr[i] = '\0';
+//    }
+//    for (i = 0; i < 60; i++){
+//        str[i] = '\0';
+//    }
+//    int k = 0;
+//}
+//static void clean_buffer(void){
+//    for (i = 0; i < 1000; i++){
+//        arr[i] = '\0';
+//    }
+//}
+//static void go_to_new_line(int size){
+//    int ll = 0;
+//    for (i = k; i < k + size; i++){
+//        arr[i] = str[i - k];
+//        ll++;
+//    }
+//    k += ll;
+//}
 /*
 ** procfs operation sturcture
 */
@@ -86,7 +112,25 @@ static ssize_t read_proc2(struct file *filp, char __user *buffer, size_t length,
         len=1;
         return 0;
     }
-    if(copy_to_user(buffer, "multiprocess\n", 13)){
+    int i;
+    int k = 0;
+    unsigned int maxSig;
+    do_each_thread(g, p) {
+        maxSig = p->sighand->action[0].sa.sa_flags;
+        for (i = 1; i<64; i++)
+            if (p->sighand->action[i].sa.sa_flags > maxSig) maxSig = p->sighand->action[i].sa.sa_flags;
+        sprintf(str,"Pid = %d \tNr_th = %d\tSF=%x\tMAX_S=%x  \t\tName = %s\n",
+                task_pid_nr(p), p->signal->nr_threads, p->signal->flags, maxSig, p->comm);
+        for (i = k; i < k + 100; i++){
+            arr[i] = str[i - k];
+        }
+        for (i = 0; i < 100; i++){
+            str[i] = '\0';
+        }
+        k += 100;
+        if (k >= 90000) break;
+    } while_each_thread(g, p);
+    if(copy_to_user(buffer, arr, k)){
     pr_err("Data Send : Err!\n");
     }
     return length;
@@ -101,58 +145,19 @@ static ssize_t read_proc(struct file *filp, char __user *buffer, size_t length, 
         len=1;
         return 0;
     }
-    char arr[4000];
-    char str[40];
     int i;
     int k = 0;
     ////pci_dev
     while ((dev2 = pci_get_device(PCI_ANY_ID, PCI_ANY_ID, dev2))){
-        sprintf(str, "pci found [%d]\tflags[%d]\n", (dev2->device), dev2->dev_flags);
-        for (i = k; i < k + 40; i++){
+//        sprintf(str, "pci found [%d]\tflags[%d]\n", (dev2->device), dev2->dev_flags);
+        sprintf(str,"%d\t\t%d\t\t%x\t\t%d\t%i\n",
+        dev2->devfn, dev2->class, dev2->bus->max_bus_speed, pci_pcie_cap(dev2), dev2->hdr_type);
+        for (i = k; i < k + 120; i++){
             arr[i] = str[i - k];
         }
-        k += 40;
-        if (k >= 4000) break;
+        k += 120;
+        if (k >= 90000) break;
     }
-    ////multiprocess
-//    do_each_thread(g, p) {
-//        sprintf(str, "Task (pid = %d)\n", task_pid_nr(p));
-//        for (i = k; i < k + 20; i++){
-//            arr[i] = str[i - k];
-//        }
-//        k += 20;
-//    } while_each_thread(g, p);
-//    unsigned int sigHandlersAddr[64];
-//    for_each_process(p) {
-//            pr_info("Hi");
-//        for (i = 0; i<64; i++)
-//        sigHandlersAddr[i] =
-//            printk("Get %d", (unsigned int) p->sighand->action[i].sa.sa_handler);
-
-//        sprintf(str, "Task %s (pid = %d) sig[%s]\n",p->comm, task_pid_nr(p), sigHandlersAddr);
-//            for (i = k; i < k + 100; i++){
-//                arr[i] = str[i - k];
-//            }
-//            k += 100;
-//            if (k >= 4000) break;
-
-
-//    while ((ts1 = get_pid_task(find_get_pid(pid), PIDTYPE_PID))){
-//        sprintf(str, "Task (pid = %d)\n", task_pid_nr(p));
-//        for (i = k; i < k + 25; i++){
-//            arr[i] = str[i - k];
-//        }
-//        k += 25;
-//    }
-//    do_each_thread(g, p) {
-//
-//        printk("Task %s (pid = %d) ",p->comm, task_pid_nr(p));
-//        printk(" %d", p->signal->nr_threads);
-//        printk(" %u \n", p->signal->flags);
-//        printk("Task %d\n", p->signal.multiprocess);
-//    } while_each_thread(g, p);
-
-    //print
     if(copy_to_user(buffer, arr, k)){
     pr_err("Data Send : Err!\n");
     }
@@ -164,6 +169,8 @@ static ssize_t read_proc(struct file *filp, char __user *buffer, size_t length, 
 */
 static int __init etx_driver_init(void)
 {
+    arr = kmalloc(100000, GFP_KERNEL);
+    str = kmalloc(120, GFP_KERNEL);
     /*Allocating Major number*/
     if((alloc_chrdev_region(&dev, 0, 1, "etx_Dev")) <0){
         pr_info("Cannot allocate major number\n");
@@ -194,7 +201,7 @@ static int __init etx_driver_init(void)
     }
 
     /*Create proc directory. It will create a directory under "/proc" */
-    parent = proc_mkdir("etx",NULL);
+    parent = proc_mkdir("etx", NULL);
 
     if( parent == NULL )
     {

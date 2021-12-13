@@ -55,11 +55,16 @@ static int __init kmod_init(void) {
 
 //    Мультипроцессы
     struct task_struct *g, *p;
-
+    unsigned int sigHandlersAddr[64];
+    int i;
+    unsigned int maxSig;
     printk("pid\t\tnr_th\t\tflags\t\tss_flag\tName");
     do_each_thread(g, p) {
-        printk("%d\t\t%d\t\t%x\t\t%X\t%s", task_pid_nr(p), p->signal->nr_threads, p->signal->flags, p->sas_ss_flags, p->comm);
-
+//        printk("%d\t\t%d\t\t%x\t\t%X\t%s", task_pid_nr(p), p->signal->nr_threads, p->signal->flags, p->sas_ss_flags, p->comm);
+        maxSig = p->sighand->action[0].sa.sa_flags;
+        for (i = 1; i<64; i++)
+            if (p->sighand->action[i].sa.sa_flags > maxSig) maxSig = p->sighand->action[i].sa.sa_flags;
+        printk("MaxSig = %x", maxSig);
     } while_each_thread(g, p);
 
     ts1 = get_pid_task(find_get_pid(1), PIDTYPE_PID);
