@@ -63,7 +63,7 @@ int i;
 dev_t dev = 0;
 char pciarr[10]="";
 char proc_pid[10]="";
-char multarr[10]="\0";
+char multarr[10]="\0\0\0\0\0\0\0\0\0\0";
 
 
 ////Multiprocess
@@ -77,29 +77,31 @@ static ssize_t read_mult(struct file *filp, char __user *buffer, size_t length, 
         return 0;
     }
     k = 0;
-    if (strcmp("\0", multarr) == 0) {
+    if (strcmp("\0\0\0\0\0\0\0\0\0\0", multarr) == 0) { //Если массив multarr, в который мы записываем равен \0... тогда выполняем общий вывод
         do_each_thread(g, p) {
-            maxSig = p->sighand->action[0].sa.sa_flags;
+            maxSig = p->sighand->action[0].sa.sa_flags; //Находим максимальный сигнал
             for (i = 1; i<64; i++)
                 if (p->sighand->action[i].sa.sa_flags > maxSig) maxSig = p->sighand->action[i].sa.sa_flags;
             sprintf(str,"Pid = %d \tNr_th = %d\tSF=%x\tMAX_SIGNAL=%x  \t\tName = %s\n",
                     task_pid_nr(p), p->signal->nr_threads, p->signal->flags, maxSig, p->comm);
-            for (i = k; i < k + 100; i++){
+            for (i = k; i < k + 100; i++){ //производим запись в большой масиив arr, str буффера
                 arr[i] = str[i - k];
             }
-            for (i = 0; i < 100; i++){
+            for (i = 0; i < 100; i++){ //очищаем буффер, чтобы не осталось мусора в массиве
                 str[i] = '\0';
             }
-            k += 100;
-            if (k >= 90000) break;
+            k += 100; //добавляем к индексу значение длины буффера str
+            if (k >= 90000) break; //проверяем на переполнение буффера arr
         } while_each_thread(g, p);
     copy_to_user(buffer, arr, k);
-    } else {
+    } else { //Если мы изменяли буффер multarr, то у нас вызывается слудующий код
         do_each_thread(g, p) {
-            for (i = 0; i < 1; i++){
+            for (i = 0; i < 1; i++){ //очищаем массив в которй мы записываем значение id процесса
                 proc_pid[i] = '\0';
             }
-            sprintf(proc_pid, "%d\n", task_pid_nr(p));
+            sprintf(proc_pid, "%d\n", task_pid_nr(p)); //копируем значение id процесса в буффер proc_pid
+            //сравниваем значения multarr, в котором получаем значения через echo, с id процесса
+            //если значния равны, то выполняем вывод информациидля конкретного id, переданного в multarr
             if (strcmp(multarr, proc_pid) == 0){
                 maxSig = p->sighand->action[0].sa.sa_flags;
                 for (i = 1; i<64; i++)
@@ -110,16 +112,33 @@ static ssize_t read_mult(struct file *filp, char __user *buffer, size_t length, 
                     arr[i] = str[i - k];
                 }
                 k += 100;
-                copy_to_user(buffer, arr, k);
+                copy_to_user(buffer, arr, k); //вывод в юзер спэйс информации по id процесса
+                for (i = 0; i < 10; i++){ //очищаем multarr, что позволяет при повторном вызове cat, получить вывод для всех процессов
+                multarr[i] = '\0';
+                }
                 return length;
             }
         }  while_each_thread(g, p);
-            for (i = 0; i < 10; i++){
+            //код ниже выполняется в случе, если значение переданной в write_mult не соответствует не одному id процессу
+            for (i = 0; i < 10; i++){ //снова очищаем буффер, чтобы повторный вызов cat выводил информацию по всем процессам
                 multarr[i] = '\0';
             }
-        copy_to_user(buffer, "Pid is incorrect\n", 17);
+        copy_to_user(buffer, "Pid is incorrect\n", 17);//Вывод в юзер спэйс инфомации о том, что нет ниодного процесса с тким id
     }
     return length;
+}
+
+////write_mult
+static ssize_t write_mult(struct file *filp, const char *buff, size_t len, loff_t * off)
+{
+    for (i = 0; i < 10; i++){ //предварительная очистка буффера, чтобы избавиться от мусора при повторном вызове функции
+        pciarr[i] = '\0';
+    }
+    if(copy_from_user(multarr, buff, len)) //копируем значение переданное юзером в локальную переменную multarr
+    {
+        pr_err("Data Write : Err!\n");
+    }
+    return len;
 }
 
 ////PCI_dev
@@ -145,19 +164,6 @@ static ssize_t read_pci(struct file *filp, char __user *buffer, size_t length, l
     pr_err("Data Send : Err!\n");
     }
     return length;
-}
-
-////write_mult
-static ssize_t write_mult(struct file *filp, const char *buff, size_t len, loff_t * off)
-{
-    for (i = 0; i < 10; i++){
-        pciarr[i] = '\0';
-    }
-    if(copy_from_user(multarr, buff, len) )
-    {
-        pr_err("Data Write : Err!\n");
-    }
-    return len;
 }
 
 ////PCI_write
