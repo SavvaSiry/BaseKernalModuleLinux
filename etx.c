@@ -61,9 +61,9 @@ unsigned int maxSig;
 int k = 0;
 int i;
 dev_t dev = 0;
-char pciarr[10]="\0\0\0\0\0\0\0\0\0\0";
+char pciarr[15]="\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0";
 char proc_pid[10]="";
-char devfn[10]="";
+char devfn[15]="";
 char multarr[10]="\0\0\0\0\0\0\0\0\0\0";
 
 
@@ -151,7 +151,7 @@ static ssize_t read_pci(struct file *filp, char __user *buffer, size_t length, l
         return 0;
     }
     k = 0;
-    if (strcmp("\0\0\0\0\0\0\0\0\0\0", pciarr) == 0) {
+    if (strcmp("\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0", pciarr) == 0) {
         while ((dev2 = pci_get_device(PCI_ANY_ID, PCI_ANY_ID, dev2))) {
             sprintf(str, "Device_ID= %d\t\tClass= %x\t\tBus_MSP= %x\tBus_NUM= %x\t\tVendor_ID= %hu\n",
             dev2->devfn, dev2->class, dev2->bus->max_bus_speed, dev2->bus->number, dev2->vendor);
@@ -168,7 +168,7 @@ static ssize_t read_pci(struct file *filp, char __user *buffer, size_t length, l
             for (i = 0; i < 1; i++){
                 devfn[i] = '\0';
             }
-            sprintf(devfn, "%d\n", dev2->devfn);
+            sprintf(devfn, "%d/%d\n", dev2->devfn, dev2->vendor);
             if (strcmp(pciarr, devfn) == 0){
                 sprintf(str, "Device_ID= %d\t\tClass= %x\t\tBus_MSP= %x\tBus_NUM= %x\t\tVendor_ID= %hu\n",
                 dev2->devfn, dev2->class, dev2->bus->max_bus_speed, dev2->bus->number, dev2->vendor);
@@ -183,17 +183,17 @@ static ssize_t read_pci(struct file *filp, char __user *buffer, size_t length, l
                 return length;
             }
         }
-        for (i = 0; i < 10; i++){
+        for (i = 0; i < 15; i++){
             pciarr[i] = '\0';
         }
-        copy_to_user(buffer, "Pid is incorrect\n", 17);
+        copy_to_user(buffer, "Data is incorrect\n", 18);
     }
     return length;
 }
 
 ////PCI_write
 static ssize_t write_pci(struct file *filp, const char *buff, size_t len, loff_t *off) {
-    for (i = 0; i < 10; i++) {
+    for (i = 0; i < 15; i++) {
         pciarr[i] = '\0';
     }
     //Из пространства юзера достаем информацию и записываем в буффер pciarr
