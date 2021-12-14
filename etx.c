@@ -61,8 +61,9 @@ unsigned int maxSig;
 int k = 0;
 int i;
 dev_t dev = 0;
-char pciarr[10]="";
+char pciarr[10]="\0\0\0\0\0\0\0\0\0\0";
 char proc_pid[10]="";
+char devfn[10]="";
 char multarr[10]="\0\0\0\0\0\0\0\0\0\0";
 
 
@@ -141,42 +142,64 @@ static ssize_t write_mult(struct file *filp, const char *buff, size_t len, loff_
     return len;
 }
 
-////PCI_dev
-static ssize_t read_pci(struct file *filp, char __user *buffer, size_t length, loff_t * offset){
+static ssize_t read_pci(struct file *filp, char __user *buffer, size_t length, loff_t * offset) {
     pr_info("Start read_pci");
     if(len) {
-        len=0;
-    }
-    else {
-        len=1;
+        len = 0;
+    } else {
+        len = 1;
         return 0;
     }
-    while ((dev2 = pci_get_device(PCI_ANY_ID, PCI_ANY_ID, dev2))){
-        sprintf(str,"Dev_ID= %d\t\tClass= %x\t\tBUS_MSP= %x\tBN= %x\n",
-        dev2->devfn, dev2->class, dev2->bus->max_bus_speed, dev2->bus->number);
-        for (i = k; i < k + 120; i++){
-            arr[i] = str[i - k];
+    k = 0;
+    if (strcmp("\0\0\0\0\0\0\0\0\0\0", pciarr) == 0) {
+        while ((dev2 = pci_get_device(PCI_ANY_ID, PCI_ANY_ID, dev2))) {
+            sprintf(str, "Device_ID= %d\t\tClass= %x\t\tBus_MSP= %x\tBus_NUM= %x\t\tVendor_ID= %hu\n",
+            dev2->devfn, dev2->class, dev2->bus->max_bus_speed, dev2->bus->number, dev2->vendor);
+            for (i = k; i < k + 120; i++) {
+                arr[i] = str[i - k];
+            }
+            k += 120;
+            if (k >= 90000) break;
         }
-        k += 120;
-        if (k >= 90000) break;
-    }
-    if(copy_to_user(buffer, arr, k)){
-    pr_err("Data Send : Err!\n");
+        copy_to_user(buffer, arr, k);
+        return length;
+    } else {
+        while ((dev2 = pci_get_device(PCI_ANY_ID, PCI_ANY_ID, dev2))) {
+            for (i = 0; i < 1; i++){
+                devfn[i] = '\0';
+            }
+            sprintf(devfn, "%d\n", dev2->devfn);
+            if (strcmp(pciarr, devfn) == 0){
+                sprintf(str, "Device_ID= %d\t\tClass= %x\t\tBus_MSP= %x\tBus_NUM= %x\t\tVendor_ID= %hu\n",
+                dev2->devfn, dev2->class, dev2->bus->max_bus_speed, dev2->bus->number, dev2->vendor);
+                for (i = k; i < k + 120; i++) {
+                    arr[i] = str[i - k];
+                }
+                k += 120;
+                copy_to_user(buffer, arr, k);
+                for (i = 0; i < 10; i++){
+                    pciarr[i] = '\0';
+                }
+                return length;
+            }
+        }
+        for (i = 0; i < 10; i++){
+            pciarr[i] = '\0';
+        }
+        copy_to_user(buffer, "Pid is incorrect\n", 17);
     }
     return length;
 }
 
 ////PCI_write
-static ssize_t write_pci(struct file *filp, const char *buff, size_t len, loff_t * off)
-{
-    for (i = 0; i < 1; i++){
+static ssize_t write_pci(struct file *filp, const char *buff, size_t len, loff_t *off) {
+    for (i = 0; i < 10; i++) {
         pciarr[i] = '\0';
     }
-    if(copy_from_user(pciarr, buff, len) )
-    {
+    //Из пространства юзера достаем информацию и записываем в буффер pciarr
+    if (copy_from_user(pciarr, buff, len)) {
         pr_err("Data Write : Err!\n");
     }
-
     return len;
 }
 
